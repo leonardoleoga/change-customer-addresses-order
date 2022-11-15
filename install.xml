@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ * ================================================================================
+ * Change Order Customer and Address - v1.1
+ * 
+ * Author: Leonardo Leoga - AGENCIA PRAI (leonardo@agenciaprai.com)
+ * ================================================================================
+-->
+
+<modification>
+	<name>Change Order Customer Address</name>
+	<code>change-order-customer-address</code>
+	<version>v1.1</version>
+	<author>Leonardo Leoga</author>
+	<link>https://www.agenciaprai.com</link>
+
+	<file path="admin/controller/sale/order.php">
+		<operation error="skip">
+			<search><![CDATA[$data['telephone'] = $order_info['telephone'];]]></search>
+			<add position="after"><![CDATA[
+			$data['addresses'] = $this->model_customer_customer->getAddresses($order_info['customer_id']);]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[$this->response->setOutput($this->load->view('sale/order_shipping', $data));]]></search>
+			<add position="after" offset="1"><![CDATA[
+	public function changeOrderCustomer() {
+		$this->load->language('sale/order');
+
+		$json = array();
+
+		if (!$this->user->hasPermission('modify', 'sale/order')) {
+			$json['error'] = $this->language->get('error_permission_order');
+		}
+
+		if (!$json) {
+			if (isset($this->request->get['order_id'])) {
+				$this->load->model('customer/customer');
+				$customer_info = $this->model_customer_customer->getCustomer($this->request->post['customer_id']);
+
+				if ($customer_info) {
+					$this->load->model('sale/order');
+					$this->model_sale_order->setChangeOrderCustomer($this->request->get['order_id'], $customer_info);
+				}
+
+				$json['success'] = $this->language->get('text_success_customer');
+			}
+		} else {
+			$json['error'] = $this->language->get('error_permission_order');
+		}
+
+		$this->response->addHeader('Content-Type: application/json');
+		$this->response->setOutput(json_encode($json));
+	}
+
+	public function changeOrderAddress() {
+		$this->load->language('sale/order');
+
+		$json = array();
+
+		if (!$this->user->hasPermission('modify', 'sale/order')) {
+			$json['error'] = $this->language->get('error_permission_order');
+		}
+
+		if (!$json) {
+			if (isset($this->request->get['order_id'])) {
+				$this->load->model('customer/customer');
+				$this->load->model('sale/order');
+
+				if ($this->request->post['shipping_payment'] == 'true') {
+					$address_info = $this->model_customer_customer->getAddress($this->request->post['payment_id']);
+
+					if ($address_info) {
+						$this->model_sale_order->setChangeOrderAddress($this->request->get['order_id'], $address_info);
+					}
+				} else {
+					if (isset($this->request->post['payment_id'])) {
+						$payment_info = $this->model_customer_customer->getAddress($this->request->post['payment_id']);
+
+						if ($payment_info) {
+							$this->model_sale_order->setChangeOrderPayment($this->request->get['order_id'], $payment_info);
+						}
+					}
+
+					if (isset($this->request->post['shipping_id'])) {
+						$shipping_info = $this->model_customer_customer->getAddress($this->request->post['shipping_id']);
+
+						if ($shipping_info) {
+							$this->model_sale_order->setChangeOrderShipping($this->request->get['order_id'], $shipping_info);
+						}
+					}
+				}
+
+				$json['success'] = $this->language->get('text_success_address');
+			}
+		} else {
+			$json['error'] = $this->language->get('error_permission_order');
+		}
+
+		$this->response->addHeader('Content-Type: application/json');
+		$this->response->setOutput(json_encode($json));
+	}
+	]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/language/pt-br/sale/order.php">
+		<operation error="skip">
+			<search><![CDATA[$_['error_filetype']]]></search>
+			<add position="after"><![CDATA[
+// Change Order Customer
+$_['button_save_change']  	 = 'Salvar';
+$_['text_change_customer']   = 'Alterar cliente do pedido';
+$_['text_change_address']    = 'Alterar endereço do pedido';
+$_['text_filter_customer']   = 'Informe o cliente...';
+$_['text_option_shipping']   = 'Selecione endereço para envio';
+$_['text_option_payment']    = 'Selecione endereço para fatura';
+$_['text_check_address']     = 'Manter o mesmo endereço para entrega';
+$_['text_success_customer']  = 'Cliente do pedido modificado com sucesso!';
+$_['text_success_address'] 	 = 'Endereço do pedido modificado com sucesso!';
+$_['error_permission_order'] = 'Atenção: Você não tem permissão para editar o pedido!';]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/model/sale/order.php">
+		<operation error="skip">
+			<search><![CDATA[public function getTotalEmailsByProductsOrdered($products) {]]></search>
+			<add position="before"><![CDATA[	public function setChangeOrderCustomer($order_id, $data) {
+		$this->db->query("UPDATE `" . DB_PREFIX . "order` SET customer_id = '" . (int)$data['customer_id'] . "',customer_group_id = '" . (int)$data['customer_group_id'] . "',firstname = '" . $this->db->escape($data['firstname']) . "',lastname = '" . $this->db->escape($data['lastname']) . "',email = '" . $this->db->escape($data['email']) . "',telephone = '" . $this->db->escape($data['telephone']) . "',custom_field = '" . $this->db->escape($data['custom_field']) . "',date_modified = NOW() WHERE order_id = '" . (int)$order_id . "'");
+	}
+
+	public function setChangeOrderAddress($order_id, $data) {
+		$this->db->query("UPDATE `" . DB_PREFIX . "order` SET payment_firstname = '" . $this->db->escape($data['firstname']) . "',payment_lastname = '" . $this->db->escape($data['lastname']) . "',payment_company = '" . $this->db->escape($data['company']) . "',payment_address_1 = '" . $this->db->escape($data['address_1']) . "',payment_address_2 = '" . $this->db->escape($data['address_2']) . "',payment_city = '" . $this->db->escape($data['city']) . "',payment_postcode = '" . $this->db->escape($data['postcode']) . "',payment_country = '" . $this->db->escape($data['country']) . "',payment_country_id = '" . (int)$data['country_id'] . "',payment_zone = '" . $this->db->escape($data['zone']) . "',payment_zone_id = '" . (int)$data['zone_id'] . "',shipping_firstname = '" . $this->db->escape($data['firstname']) . "',shipping_lastname = '" . $this->db->escape($data['lastname']) . "',shipping_company = '" . $this->db->escape($data['company']) . "',shipping_address_1 = '" . $this->db->escape($data['address_1']) . "',shipping_address_2 = '" . $this->db->escape($data['address_2']) . "',shipping_city = '" . $this->db->escape($data['city']) . "',shipping_postcode = '" . $this->db->escape($data['postcode']) . "',shipping_country = '" . $this->db->escape($data['country']) . "',shipping_country_id = '" . (int)$data['country_id'] . "',shipping_zone = '" . $this->db->escape($data['zone']) . "',shipping_zone_id = '" . (int)$data['zone_id'] . "' WHERE order_id = '" . (int)$order_id . "'");
+	}
+
+	public function setChangeOrderPayment($order_id, $data) {
+		$this->db->query("UPDATE `" . DB_PREFIX . "order` SET payment_firstname = '" . $this->db->escape($data['firstname']) . "',payment_lastname = '" . $this->db->escape($data['lastname']) . "',payment_company = '" . $this->db->escape($data['company']) . "',payment_address_1 = '" . $this->db->escape($data['address_1']) . "',payment_address_2 = '" . $this->db->escape($data['address_2']) . "',payment_city = '" . $this->db->escape($data['city']) . "',payment_postcode = '" . $this->db->escape($data['postcode']) . "',payment_country = '" . $this->db->escape($data['country']) . "',payment_country_id = '" . (int)$data['country_id'] . "',payment_zone = '" . $this->db->escape($data['zone']) . "',payment_zone_id = '" . (int)$data['zone_id'] . "' WHERE order_id = '" . (int)$order_id . "'");
+	}
+
+	public function setChangeOrderShipping($order_id, $data) {
+		$this->db->query("UPDATE `" . DB_PREFIX . "order` SET shipping_firstname = '" . $this->db->escape($data['firstname']) . "',shipping_lastname = '" . $this->db->escape($data['lastname']) . "',shipping_company = '" . $this->db->escape($data['company']) . "',shipping_address_1 = '" . $this->db->escape($data['address_1']) . "',shipping_address_2 = '" . $this->db->escape($data['address_2']) . "',shipping_city = '" . $this->db->escape($data['city']) . "',shipping_postcode = '" . $this->db->escape($data['postcode']) . "',shipping_country = '" . $this->db->escape($data['country']) . "',shipping_country_id = '" . (int)$data['country_id'] . "',shipping_zone = '" . $this->db->escape($data['zone']) . "',shipping_zone_id = '" . (int)$data['zone_id'] . "' WHERE order_id = '" . (int)$order_id . "'");
+	}
+	]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/view/template/sale/order_info.twig">
+		<operation error="skip">
+			<search><![CDATA[{{ text_customer_detail }}]]></search>
+			<add position="after"><![CDATA[						<button data-toggle="tooltip" data-placement="left" title="{{ text_change_customer }}" class="btn btn-default btn-xs pull-right" id="change-customer"><i class="fa fa-edit fa-fw"></i></button>]]></add>
+		</operation>
+		<operation error="skip">
+			<search index="1"><![CDATA[<table class="table">]]></search>
+			<add position="before"><![CDATA[					<div id="form-customer" class="col-md-12">
+						<div class="form-group">
+							<div class="input-group">
+								<input type="hidden" name="customer-id" value="" class="form-control" />
+								<input type="text" name="filter-name" value="" placeholder="{{ text_filter_customer }}" class="form-control" />
+								<span class="input-group-btn">
+									<button id="save-change-customer" data-toggle="tooltip" title="{{ button_save_change }}" class="btn btn-primary"><i class="fa fa-save fa-fw"></i></button>
+								</span>
+							</div>
+						</div>
+					</div>]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[{{ text_order }}]]></search>
+			<add position="after"><![CDATA[				<button data-toggle="tooltip" data-placement="left" title="{{ text_change_address }}" class="btn btn-default btn-xs pull-right" id="change-payment"><i class="fa fa-edit fa-fw"></i></button>]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[<td class="text-left">{{ payment_address }}</td>]]></search>
+			<add position="replace"><![CDATA[<td class="text-left">
+									<div id="form-payment" class="col-md-12">
+										<div class="col-md-10 col-md-offset-1 form-group">
+											<div class="input-group">
+												<select name="payment-id" class="form-control">
+													<option value="0" selected="selected">{{ text_option_payment }}</option>
+													{% for address in addresses %}
+													<option value="{{ address.address_id }}">{{ address.firstname }} {{ address.lastname }}, {{ address.address_1 }}, {{ address.city }}, {{ address.zone }}, {{ address.country }}</option>
+													{% endfor %}
+												</select>
+												<span class="input-group-btn">
+													<button id="save-change-payment" data-toggle="tooltip" title="{{ button_save_change }}" class="btn btn-primary"><i class="fa fa-save fa-fw"></i></button>
+												</span>
+											</div>
+											<div class="checkbox">
+												<label><input type="checkbox" name="shipping-payment" checked /> <span style="font-size: 10px;vertical-align: text-top;">{{ text_check_address }}</span></label>
+											</div>
+										</div>
+									</div>
+
+									{{ payment_address }}
+								</td>]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[<td class="text-left">{{ shipping_address }}</td>]]></search>
+			<add position="replace"><![CDATA[<td class="text-left">
+									<div id="form-shipping" class="col-md-12">
+										<div class="col-md-10 col-md-offset-1 form-group">
+											<div class="input-group">
+												<select name="shipping-id" class="form-control">
+													<option value="0" selected="selected">{{ text_option_shipping }}</option>
+													{% for address in addresses %}
+													<option value="{{ address.address_id }}">{{ address.firstname }} {{ address.lastname }}, {{ address.address_1 }}, {{ address.city }}, {{ address.zone }}, {{ address.country }}</option>
+													{% endfor %}
+												</select>
+												<span class="input-group-btn">
+													<button id="save-change-shipping" data-toggle="tooltip" title="{{ button_save_change }}" class="btn btn-primary"><i class="fa fa-save fa-fw"></i></button>
+												</span>
+											</div>
+										</div>
+									</div>
+
+									{{ shipping_address }}
+								</td>]]></add>
+		</operation>
+		<operation error="skip">
+			<search index="0"><![CDATA[<script type="text/javascript"><!--]]></search>
+			<add position="before"><![CDATA[<style type="text/css">
+#form-customer, #form-payment, #form-shipping {display: none;background-color: #f5f5f5;}
+#form-payment, #form-shipping {margin-bottom: 10px;}
+#form-payment .form-group {padding-bottom: 0;}
+</style>
+
+<script type="text/javascript"><!--
+$('button[id*=\'change\']').on('click', function() {
+	let change = $(this).attr('id').split('-')[1]
+
+	$('#form-' + change).toggle()
+});
+
+$('input[name=\'shipping-payment\']').on('click', function(event) {
+	if (this.checked) {
+		$('#save-change-payment').show()
+		$('#form-shipping').hide()
+	} else {
+		$('#save-change-payment').hide()
+		$('#form-shipping').show()
+	}
+});
+
+$('input[name=\'filter-name\']').autocomplete({
+	'source': function(request, response) {
+		$.ajax({
+			url: 'index.php?route=customer/customer/autocomplete&user_token={{ user_token }}&filter_name=' +  encodeURIComponent(request),
+			dataType: 'json',
+			success: function(json) {
+				response($.map(json, function(item) {
+					return {
+						label: item['name'],
+						value: item['customer_id']
+					}
+				}));
+			}
+		});
+	},
+	'select': function(item) {
+		$('input[name=\'filter-name\']').val(item['label'])
+		$('input[name=\'customer-id\']').val(item['value'])
+	}
+});
+
+$(document).on('click', 'button[id*=\'save-change\']', function() {
+	let element 		= $(this).attr('id').split('-')[2]
+	let customer_id = $('input[name=\'customer-id\']').val()
+	let payment_id  = $('select[name=\'payment-id\'] option:selected').val()
+	let urltoquery  = ''
+
+	if (element == 'customer' && customer_id != '') {
+		urltoquery = 'index.php?route=sale/order/changeOrderCustomer&user_token={{ user_token }}&order_id={{ order_id }}'
+		data = 'customer_id=' + encodeURIComponent(customer_id)
+	}
+
+	if (element == 'payment' && payment_id > '0') {
+		urltoquery = 'index.php?route=sale/order/changeOrderAddress&user_token={{ user_token }}&order_id={{ order_id }}'
+		data = 'payment_id=' + encodeURIComponent(payment_id) + '&shipping_payment=' + encodeURIComponent($('input[name=\'shipping-payment\']').is(':checked'))
+	}
+
+	if (element == 'shipping' && payment_id > '0' && $('input[name=\'shipping-payment\']').is(':checked') == false) {
+		let shipping_id = $('select[name=\'shipping-id\'] option:selected').val()
+		
+		if (shipping_id > '0') {
+			urltoquery = 'index.php?route=sale/order/changeOrderAddress&user_token={{ user_token }}&order_id={{ order_id }}'
+			data = 'payment_id=' + encodeURIComponent(payment_id) + '&shipping_id=' + encodeURIComponent(shipping_id) + '&shipping_payment=' + encodeURIComponent($('input[name=\'shipping-payment\']').is(':checked'))
+		}
+	}
+
+	if (urltoquery != '') {
+		$.ajax({
+			type: 'post',
+			url: urltoquery,
+			data: data,
+			dataType: 'json',
+			beforeSend: function() {
+				$('#save-change-' + element + ' i').replaceWith('<i class="fa fa-circle-o-notch fa-spin fa-fw"></i>')
+				$('#save-change-' + element).attr('disabled', true)
+			},
+			complete: function() {
+			},
+			success: function(json) {
+				$('html, body').animate({scrollTop: 0}, 'slow');
+
+				if (json.error) {
+					$('#content > .container-fluid').prepend('<div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> ' + json.error + ' <button type="button" class="close" data-dismiss="alert">&times;</button></div>')
+				}
+
+				if (json.success) {
+					$('#content > .container-fluid').prepend('<div class="alert alert-success alert-dismissible"><i class="fa fa-exclamation-circle"></i> ' + json.success + ' <button type="button" class="close" data-dismiss="alert">&times;</button></div>')
+
+					setTimeout(function() {document.location.reload(true)}, 500);
+				}
+			}
+		});
+	} else {
+		$('#form-' + element + ' .form-group').addClass('has-error')
+	}
+});
+//--></script>]]></add>
+		</operation>
+	</file>
+</modification>
